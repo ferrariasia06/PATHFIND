@@ -1,0 +1,430 @@
+---
+title: "INT_linear_models"
+author: "Asia Ferrari"
+date: "2025-02-17"
+output: html_document
+---
+## This R script performs various statistical analyses, including data preprocessing, outlier removal, 
+## normality testing, and model fitting to explore the relationship between neuroimaging data and predictors 
+## such as gender, MMSE, and group. It uses mixed-effects models (e.g., GLMM, Weibull, Log-Normal) and provides
+## model comparisons based on AIC/BIC, followed by visualization of fixed effects with scatter plots.
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+library(readr)   # For reading CSV files
+library(readxl)  # For reading Excel files
+library(MASS)    # For robust regression
+library(knitr)   # For rendering tables in RMarkdown
+library(survival)  # For Weibull model
+library(kableExtra)  # For enhanced table formatting
+library(lme4)   # For mixed-effects models
+library(glmmTMB)
+library(viridis)  # For turbo palette
+library(extrafont)
+
+# Set chunk options to suppress warnings and messages
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+## Load Dataset
+```{r}
+# Load the dataset from an Excel file
+ApoE_dt <- read_excel('data/Database_AD_ApoE_DMN.xlsx', 
+    col_types = rep("numeric", 24))  # Adjust column count as needed
+```
+
+## Data Preprocessing
+```{r}
+# Convert selected variables to numeric
+variables_to_test <- c("INT_DMN")
+ApoE_dt <- ApoE_dt %>% mutate(across(all_of(variables_to_test), as.numeric))
+
+# Remove outliers based on IQR
+for (variable in variables_to_test) {
+  quantile_calc <- ApoE_dt %>%
+    group_by(Interac_group) %>%  # Adjust based on actual grouping variable
+    summarize(Q1 = quantile(.data[[variable]], .25, na.rm = TRUE),
+              Q3 = quantile(.data[[variable]], .75, na.rm = TRUE),
+              IQR = IQR(.data[[variable]], na.rm = TRUE))
+  
+  quantile_calc <- as.data.frame(quantile_calc)
+  
+  for (i in 1:nrow(quantile_calc)) {
+    group_name <- quantile_calc$Interac_group[i]
+    ApoE_dt[[variable]][ApoE_dt$Interac_group == group_name &
+                     (ApoE_dt[[variable]] < quantile_calc$Q1[i] - 1.5 * quantile_calc$IQR[i] | 
+                      ApoE_dt[[variable]] > quantile_calc$Q3[i] + 1.5 * quantile_calc$IQR[i])] <- NaN
+  }
+}
+```
+
+## Normality Tests
+```{r}
+# Histogram and Q-Q Plot
+hist(ApoE_dt$INT_DMN, main = "Histogram of INT_DMN", col = "lightblue", breaks = 20)
+qqnorm(ApoE_dt$INT_DMN)
+qqline(ApoE_dt$INT_DMN, col = "red")
+
+# Kolmogorov-Smirnov test
+ks_test_result <- ks.test(log(ApoE_dt$INT_DMN), "pnorm", mean = mean(log(ApoE_dt$INT_DMN), na.rm = TRUE), sd = sd(log(ApoE_dt$INT_DMN), na.rm = TRUE))
+print(ks_test_result)
+```
+
+## Best model testing with SEX and FD_Power
+```{r message=FALSE, warning=FALSE}
+
+# Ensure SEX is a factor and set the reference level
+ApoE_dt$SEX <- as.factor(ApoE_dt$SEX)
+ApoE_dt$SEX <- relevel(ApoE_dt$SEX, ref = "0")
+
+# Fit models using SEX and FD_Power as predictors with random effects
+# Inverse Gaussian model with random effect
+model1 <- glmer(INT_DMN ~ SEX + (1 | ID), 
+                data = ApoE_dt, family = inverse.gaussian(link = "log"))
+
+# Gamma model with random effect
+model2 <- glmer(INT_DMN ~ SEX + (1 | ID), 
+                data = ApoE_dt, family = Gamma(link = "log"))
+
+# Weibull model (using survreg for parametric survival model)
+model3 <- survreg(Surv(INT_DMN) ~ SEX, 
+                  data = ApoE_dt, dist = "weibull")
+
+# Log-Normal model with random effect
+model4 <- glmmTMB(log(INT_DMN) ~ SEX + (1 | ID), 
+                  data = ApoE_dt, family = gaussian(link = "identity"))
+
+# Calculate AIC and BIC for all models
+aic_values <- c(AIC(model1), AIC(model2), AIC(model3), AIC(model4))
+bic_values <- c(BIC(model1), BIC(model2), BIC(model3), BIC(model4))
+
+# Compare models based on AIC and BIC
+best_aic_model <- which.min(aic_values)
+best_bic_model <- which.min(bic_values)
+
+# Print AIC and BIC comparison table
+comparison_results <- data.frame(
+  Model = c("Inverse Gaussian", "Gamma", "Weibull", "Log-Normal"),
+  AIC = aic_values,
+  BIC = bic_values,
+  Best_AIC = ifelse(1:4 == best_aic_model, "Yes", "No"),
+  Best_BIC = ifelse(1:4 == best_bic_model, "Yes", "No")
+)
+
+comparison_results %>%
+  kable("html", digits = 2, caption = "Model Comparison: AIC and BIC with FD_Power") %>%
+  kable_styling(full_width = FALSE, position = "left") %>%
+  add_header_above(c(" " = 1, "Metrics" = 2, "Best Model" = 2))
+
+# Extract coefficients from Model 4
+ApoE_dt <- ApoE_dt[!is.na(ApoE_dt$ApoE_carr), ]
+ApoE_dt <- ApoE_dt[!is.na(ApoE_dt$INT_DMN), ]
+ApoE_dt <- ApoE_dt %>%
+  filter(INT_DMN > 0)
+
+formula_DMN <- as.formula(paste("log(INT_DMN) ~ SEX + FD_Power + (1 | ID)"))
+
+# Fit the mixed model using glmmTMB
+fit_DMN <- glmmTMB(formula_DMN, data = ApoE_dt, family = gaussian(link = "identity"))
+
+summary_DMN <- summary(fit_DMN)
+cond_coeffs <- summary_DMN$coefficients$cond
+
+# Initialize a data frame to store results
+fit_results <- data.frame(
+  Variable = character(),
+  Beta = numeric(),
+  P_Value = numeric(),
+  Adjusted_P_Value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Iterate through all predictors (SEX levels and FD_Power)
+for (i in 2:nrow(cond_coeffs)) {  # Start from the second row to exclude intercept
+  beta <- cond_coeffs[i, "Estimate"]            # Beta coefficient
+  p_val <- cond_coeffs[i, "Pr(>|z|)"]           # P-value for the effect
+  variable <- rownames(cond_coeffs)[i]          # Variable name
+  
+  # Add results to the fit_results data frame
+  fit_results <- rbind(
+    fit_results,
+    data.frame(Variable = variable, Beta = beta, P_Value = p_val, Adjusted_P_Value = NA)
+  )
+}
+
+# Correct p-values for multiple testing using FDR
+fit_results$Adjusted_P_Value <- p.adjust(fit_results$P_Value, method = "fdr")
+
+# Display the results in a well-formatted table
+fit_results %>%
+  kable("html", digits = 3, caption = "Model 4 Results for DMN with FD_Power and FDR Adjustment") %>%
+  kable_styling(full_width = FALSE, position = "left") %>%
+  add_header_above(c(" " = 1, "Fixed Effects" = 2, "Adjusted P-Values" = 1))
+
+cat("\nBest Model: Model 4 (Log-Normal)\n")
+
+```
+
+## Model testing GROUP and FD_Power
+```{r message=FALSE, warning=FALSE}
+
+# Extract coefficients from Model 4
+ApoE_dt <- ApoE_dt[!is.na(ApoE_dt$ApoE_carr), ]
+ApoE_dt <- ApoE_dt[!is.na(ApoE_dt$INT_DMN), ]
+ApoE_dt <- ApoE_dt %>%
+  filter(INT_DMN > 0)
+
+formula_DMN <- as.formula(paste("log(INT_DMN) ~ Interac_group + FD_Power + (1 | ID)"))
+
+# Fit the mixed model using glmmTMB
+fit_DMN <- glmmTMB(formula_DMN, data = ApoE_dt, family = gaussian(link = "identity"))
+
+summary_DMN <- summary(fit_DMN)
+cond_coeffs <- summary_DMN$coefficients$cond
+
+# Initialize a data frame to store results
+fit_results <- data.frame(
+  Variable = character(),
+  Beta = numeric(),
+  P_Value = numeric(),
+  Adjusted_P_Value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Iterate through all predictors (Interac_group levels and FD_Power)
+for (i in 2:nrow(cond_coeffs)) {  # Start from the second row to exclude intercept
+  beta <- cond_coeffs[i, "Estimate"]            # Beta coefficient
+  p_val <- cond_coeffs[i, "Pr(>|z|)"]           # P-value for the effect
+  variable <- rownames(cond_coeffs)[i]          # Variable name
+  
+  # Add results to the fit_results data frame
+  fit_results <- rbind(
+    fit_results,
+    data.frame(Variable = variable, Beta = beta, P_Value = p_val, Adjusted_P_Value = NA)
+  )
+}
+
+# Correct p-values for multiple testing using FDR
+fit_results$Adjusted_P_Value <- p.adjust(fit_results$P_Value, method = "fdr")
+
+# Display the results in a well-formatted table
+fit_results %>%
+  kable("html", digits = 3, caption = "Model 4 Results for DMN with FD_Power and FDR Adjustment") %>%
+  kable_styling(full_width = FALSE, position = "left") %>%
+  add_header_above(c(" " = 1, "Fixed Effects" = 2, "Adjusted P-Values" = 1))
+
+cat("\nBest Model: Model 4 (Log-Normal)\n")
+
+```
+
+## Model testing MMSE and FD_Power
+```{r message=FALSE, warning=FALSE}
+
+# Extract coefficients from Model 4
+ApoE_dt <- ApoE_dt[!is.na(ApoE_dt$ApoE_carr), ]
+ApoE_dt <- ApoE_dt[!is.na(ApoE_dt$INT_DMN), ]
+ApoE_dt <- ApoE_dt %>%
+  filter(INT_DMN > 0)
+
+formula_DMN <- as.formula(paste("log(INT_DMN) ~ MMSE + FD_Power + (1 | ID)"))
+
+# Fit the mixed model using glmmTMB
+fit_DMN <- glmmTMB(formula_DMN, data = ApoE_dt, family = gaussian(link = "identity"))
+
+summary_DMN <- summary(fit_DMN)
+cond_coeffs <- summary_DMN$coefficients$cond
+
+# Initialize a data frame to store results
+fit_results <- data.frame(
+  Variable = character(),
+  Beta = numeric(),
+  P_Value = numeric(),
+  Adjusted_P_Value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Iterate through all predictors (MMSE levels and FD_Power)
+for (i in 2:nrow(cond_coeffs)) {  # Start from the second row to exclude intercept
+  beta <- cond_coeffs[i, "Estimate"]            # Beta coefficient
+  p_val <- cond_coeffs[i, "Pr(>|z|)"]           # P-value for the effect
+  variable <- rownames(cond_coeffs)[i]          # Variable name
+  
+  # Add results to the fit_results data frame
+  fit_results <- rbind(
+    fit_results,
+    data.frame(Variable = variable, Beta = beta, P_Value = p_val, Adjusted_P_Value = NA)
+  )
+}
+
+# Correct p-values for multiple testing using FDR
+fit_results$Adjusted_P_Value <- p.adjust(fit_results$P_Value, method = "fdr")
+
+# Display the results in a well-formatted table
+fit_results %>%
+  kable("html", digits = 3, caption = "Model 4 Results for DMN with FD_Power and FDR Adjustment") %>%
+  kable_styling(full_width = FALSE, position = "left") %>%
+  add_header_above(c(" " = 1, "Fixed Effects" = 2, "Adjusted P-Values" = 1))
+
+cat("\nBest Model: Model 4 (Log-Normal)\n")
+
+```
+
+## Model testing SEX and GROUP
+```{r message=FALSE, warning=FALSE}
+
+ApoE_dt <- ApoE_dt[!is.na(ApoE_dt$ApoE_carr), ]
+ApoE_dt <- ApoE_dt[!is.na(ApoE_dt$INT_DMN), ]
+ApoE_dt <- ApoE_dt[!is.na(ApoE_dt$Interac_group), ]
+ApoE_dt <- ApoE_dt %>%
+  filter(INT_DMN > 0)
+# Ensure data contains necessary variables and check for positive values in INT_DMN
+required_columns <- c("SEX", "Interac_group", "INT_DMN")
+if (!all(required_columns %in% colnames(ApoE_dt))) {
+  stop("Dataset must contain the following columns: SEX, Interac_group & INT_DMN")
+}
+
+# Filter for valid values of INT_DMN and FD_Power (INT_DMN must be positive for log transformation)
+ApoE_dt <- ApoE_dt %>%
+  filter(INT_DMN > 0)
+ApoE_dt$Interac_group <- factor(ApoE_dt$Interac_group)
+
+# Relevel Interac_group to ensure the reference level is correctly set
+if (is.factor(ApoE_dt$Interac_group)) {
+  ApoE_dt$Interac_group <- relevel(ApoE_dt$Interac_group, ref = "0")
+}
+
+
+# Fit the model with SEX, Interac_group, and FD_Power
+model1 <- glmmTMB(
+  log(INT_DMN) ~ SEX + Interac_group + (1 | ID), 
+  data = ApoE_dt, 
+  family = gaussian(link = "identity")
+)
+
+# Extract the summary of the model
+summary_model1 <- summary(model1)
+
+# Extract coefficients and p-values dynamically for all predictors from Model 1
+cond_coeffs1 <- summary_model1$coefficients$cond
+
+# Construct the results table
+fit_results1 <- data.frame(
+  Variable = c("SEX", levels(ApoE_dt$Interac_group)[-1]), # Include all predictors
+  Beta = cond_coeffs1[2:5, "Estimate"], # Extract Beta values
+  P_Value = cond_coeffs1[2:5, "Pr(>|z|)"], # Extract p-values
+  Adjusted_P_Value = p.adjust(cond_coeffs1[2:5, "Pr(>|z|)"], method = "fdr"), # FDR adjustment
+  stringsAsFactors = FALSE
+)
+
+# Display the results for Model 1 in a well-formatted table
+fit_results1 %>%
+  kable("html", digits = 3, caption = "Model 1 Results with SEX, Interac_group (FDR Adjustment)") %>%
+  kable_styling(full_width = FALSE, position = "left") %>%
+  add_header_above(c(" " = 1, "Fixed Effects" = 3, "Adjusted P-Values" = 1))
+
+```
+
+## Model Testing MMSE and GROUP
+```{r message=FALSE, warning=FALSE}
+
+ApoE_dt <- ApoE_dt[!is.na(ApoE_dt$ApoE_carr), ]
+ApoE_dt <- ApoE_dt[!is.na(ApoE_dt$INT_DMN), ]
+ApoE_dt <- ApoE_dt[!is.na(ApoE_dt$Interac_group), ]
+ApoE_dt <- ApoE_dt %>%
+  filter(INT_DMN > 0)
+# Ensure data contains necessary variables and check for positive values in INT_DMN
+required_columns <- c("MMSE", "Interac_group", "INT_DMN")
+if (!all(required_columns %in% colnames(ApoE_dt))) {
+  stop("Dataset must contain the following columns: MMSE, Interac_group & INT_DMN.")
+}
+
+# Filter for valid values of INT_DMN and FD_Power (INT_DMN must be positive for log transformation)
+ApoE_dt <- ApoE_dt %>%
+  filter(INT_DMN > 0)
+ApoE_dt$Interac_group <- factor(ApoE_dt$Interac_group)
+
+# Relevel Interac_group to ensure the reference level is correctly set
+if (is.factor(ApoE_dt$Interac_group)) {
+  ApoE_dt$Interac_group <- relevel(ApoE_dt$Interac_group, ref = "0")
+}
+
+# Fit the model with MMSE, Interac_group, and FD_Power
+model1 <- glmmTMB(
+  log(INT_DMN) ~ MMSE + Interac_group + (1 | ID), 
+  data = ApoE_dt, 
+  family = gaussian(link = "identity")
+)
+
+# Extract the summary of the model
+summary_model1 <- summary(model1)
+
+# Extract coefficients and p-values dynamically for all predictors from Model 1
+cond_coeffs1 <- summary_model1$coefficients$cond
+
+# Construct the results table
+fit_results1 <- data.frame(
+  Variable = c("MMSE", levels(ApoE_dt$Interac_group)[-1]), # Include all predictors
+  Beta = cond_coeffs1[2:5, "Estimate"], # Extract Beta values
+  P_Value = cond_coeffs1[2:5, "Pr(>|z|)"], # Extract p-values
+  Adjusted_P_Value = p.adjust(cond_coeffs1[2:5, "Pr(>|z|)"], method = "fdr"), # FDR adjustment
+  stringsAsFactors = FALSE
+)
+
+# Display the results for Model 1 in a well-formatted table
+fit_results1 %>%
+  kable("html", digits = 3, caption = "Model 1 Results with MMSE & Interac_group (FDR Adjustment)") %>%
+  kable_styling(full_width = FALSE, position = "left") %>%
+  add_header_above(c(" " = 1, "Fixed Effects" = 3, "Adjusted P-Values" = 1))
+
+```
+
+## Plot fixed effect
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# List of variables to test in the models
+variables_to_test <- c("MMSE")
+
+# Import and load fonts (only need to do this once)
+# font_import()  # Uncomment to import fonts if you haven't done this
+loadfonts(device = "win")  # Load fonts
+
+# Loop through each variable in the list
+for (variable in variables_to_test) {
+
+  # Fit a linear model for INT_DMN as a function of the current variable
+  formula <- as.formula(paste("INT_DMN ~", variable))
+  model <- lm(formula, data = ApoE_dt)
+
+  # Create the scatter plot with color based on INT_DMN
+  scatter_plot <- ggplot(ApoE_dt, aes_string(x = variable, y = "INT_DMN", color = "INT_DMN")) +
+    geom_point(size = 2, alpha = 0.6) +  # Scatter points with transparency
+    geom_smooth(method = "lm", se = TRUE, fill = "black", alpha = 0.3, color = "black") +  # Linear model with shadow confidence intervals and grey line
+    scale_color_viridis(option = "turbo") +  # Apply turbo color palette based on INT_DMN
+    labs(
+      x = variable,  # Dynamic x-axis label
+      y = "INT DMN linear prediction",  # Label for the y-axis
+      color = "INT DMN"  # Label for the color legend
+    ) +
+    theme_minimal() +       # Use a minimal theme for a cleaner look
+    theme(
+      legend.position = "top",  # Position the legend at the top
+      axis.text = element_text(size = 20, family = "Helvetica"),  # Change font family for axis text
+      axis.title = element_text(size = 20, family = "Helvetica"), # Change font family for axis titles
+      plot.title = element_text(size = 20, family = "Helvetica"), # Change font family for plot title
+      panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "grey90"),  # Customize grid lines
+      panel.grid.minor = element_blank()    # Remove minor grid lines
+    )
+
+  # Display the plot
+  print(scatter_plot)
+
+  # Dynamic file name based on the variable name
+  file_name <- paste0("C:/Users/Asia/OneDrive/Documenti/ApoE/Final_ApoE_Figures/INT_DMN_", variable, "_effect_colored_y.png")
+
+  # Save the plot
+  ggsave(file_name, plot = scatter_plot, width = 8, height = 8, dpi = 600, units = "in")
+}
+
+
+```

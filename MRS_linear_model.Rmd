@@ -1,0 +1,219 @@
+---
+title: "Linear_models_AD"
+author: "Asia Ferrari"
+date: "2025-02-17"
+output: html_document
+---
+## This R script performs data preprocessing, normality testing, and regression modeling to analyze the relationship 
+# between neuropsychological test scores and neuroimaging variables. It uses zero-inflated Gamma regression 
+## models and visualizes results through histograms, Q-Q plots, and linear regression plots.
+```{r}
+# Load necessary packages
+library(dplyr)
+library(ggplot2)
+library(readr)   # For reading CSV files
+library(readxl)  # For reading Excel files
+library(MASS)    # For robust regression
+library(knitr)   # For rendering tables in RMarkdown
+library(kableExtra)  # For enhanced table formatting
+library(glmmTMB)
+library(gamlss)  # For zero-inflated and Gamma-like regression
+
+# Set chunk options to suppress warnings and messages
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+```
+
+## Load Dataset
+```{r}
+# Load the dataset from the Excel file
+AD_dt <- read_excel('data/Database_AD_MRS.xlsx', 
+    col_types = rep("numeric", 27))  # Adjust column count as needed
+```
+
+## Data Preprocessing
+```{r}
+
+# List of variables to test in the models
+variables_to_test <- c("WREY_IMM_corr", "WREY_DEL_corr", "TMT_A_corr", "TMT_B_corr", "TMT_AB_corr")
+
+# Convert the specified variables to numeric format in the dataset
+AD_dt <- AD_dt %>% mutate(across(all_of(variables_to_test), as.numeric))
+
+# Calculate IQR (Interquartile Range) and remove outliers for each variable in the list 'variables_to_test'
+for (variable in variables_to_test) {
+  
+  # Calculate quantiles (25th and 75th percentiles) and IQR for the current variable, grouped by 'GROUP'
+  quantile_calc <- AD_dt %>%
+    group_by(GROUP) %>%  # Group by the 'GROUP' variable (can be a factor or grouping variable like 'Treatment', 'Condition', etc.)
+    summarize(Q1 = quantile(.data[[variable]], .25, na.rm = TRUE),  # First quartile (25th percentile)
+              Q3 = quantile(.data[[variable]], .75, na.rm = TRUE),  # Third quartile (75th percentile)
+              IQR = IQR(.data[[variable]], na.rm = TRUE))  # Calculate the interquartile range (Q3 - Q1)
+
+  # Convert the result into a data frame
+  quantile_calc <- as.data.frame(quantile_calc)
+
+  # Loop through each group and remove outliers by replacing them with NaN
+  for (i in 1:nrow(quantile_calc)) {
+    group_name <- quantile_calc$GROUP[i]  # Get the current group name
+    
+    # Identify outliers based on the IQR method (values outside 1.5 times the IQR from Q1 or Q3)
+    # Replace outliers with NaN (Not a Number)
+    AD_dt[[variable]][AD_dt$GROUP == group_name & 
+                     (AD_dt[[variable]] < quantile_calc$Q1[i] - 1.5 * quantile_calc$IQR[i] | 
+                      AD_dt[[variable]] > quantile_calc$Q3[i] + 1.5 * quantile_calc$IQR[i])] <- NaN
+    
+    # Print the number of outliers removed for the current group and variable
+    print(paste('N. of outliers removed for', group_name, 'in', variable, ':', sum(is.nan(AD_dt[[variable]][AD_dt$GROUP == group_name]))))
+  }
+}
+
+
+```
+
+## Normality Test
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# List of variables to test for normality
+variables_to_test <- c("GABA", "Glx", "EIB")
+
+# Set up the plotting area to show multiple plots (2 rows and 3 columns)
+par(mfrow = c(2, 3))
+
+# Loop through each variable to generate histograms, Q-Q plots, and perform the Shapiro-Wilk test
+for (variable in variables_to_test) {
+  
+  # Histogram
+  hist(AD_dt[[variable]], main = paste("Histogram of", variable), xlab = variable, col = "lightblue", breaks = 20) 
+  # Create a histogram for the current variable
+  
+  # Q-Q plot
+  qqnorm(AD_dt[[variable]], main = paste("Q-Q Plot of", variable)) 
+  # Generate a Q-Q plot for the current variable
+  qqline(AD_dt[[variable]], col = "red") 
+  # Add a reference line to the Q-Q plot
+  
+  # Perform the Shapiro-Wilk test for normality
+  shapiro_test <- shapiro.test(AD_dt[[variable]])
+  print(paste(variable, "Shapiro-Wilk test p-value:", shapiro_test$p.value)) 
+  # Output the p-value of the Shapiro-Wilk test for the current variable
+}
+                       
+```
+
+## Model testing MRS and clinical scores
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# List of variables to test in the models
+variables_to_test <- c("WREY_IMM_corr", "WREY_DEL_corr", "TMT_A_corr", "TMT_B_corr", "TMT_AB_corr", "ADAS_Cog", "CDR", "MMSE")
+
+# Initialize an empty data frame to store the results (beta coefficients and p-values)
+fit_results <- data.frame(
+  Variable = character(),  # To store the name of the variable being tested
+  Model = character(),     # To store the model used (GABA, Glx, or EIB)
+  Beta = numeric(),        # To store the beta coefficients of the models
+  P_Value = numeric(),     # To store the p-values of the models
+  stringsAsFactors = FALSE  # Avoid automatic conversion of strings to factors
+)
+
+# Loop through each variable in the list to fit models
+for (variable in variables_to_test) {
+  
+  # Dynamically create the formulas for each outcome variable (GABA, Glx, EIB)
+  formula_GABA <- as.formula(paste(variable, "~ GABA"))
+  formula_GLX  <- as.formula(paste(variable, "~ Glx"))
+  formula_EIB  <- as.formula(paste(variable, "~ EIB"))
+  
+  # Fit the models using zero-inflated Gamma family with gamlss function
+  # The 'na.omit' ensures that missing values are excluded from the models
+  fit_GABA <- gamlss(formula_GABA, data = na.omit(AD_dt), family = ZAGA)
+  fit_GLX  <- gamlss(formula_GLX, data = na.omit(AD_dt), family = ZAGA)
+  fit_EIB  <- gamlss(formula_EIB, data = na.omit(AD_dt), family = ZAGA)
+  
+  # Extract model summaries
+  summary_GABA <- summary(fit_GABA)
+  summary_Glx <- summary(fit_GLX)
+  summary_EIB <- summary(fit_EIB)
+  
+  # Extract the p-values and beta coefficients for each model
+  p_val_GABA <- summary_GABA[2, 4]  # p-value for GABA model
+  p_val_Glx <- summary_Glx[2, 4]    # p-value for Glx model
+  p_val_EIB <- summary_EIB[2, 4]    # p-value for EIB model
+  
+  beta_GABA <- summary_GABA[2, 1]   # beta coefficient for GABA model
+  beta_Glx <- summary_Glx[2, 1]     # beta coefficient for Glx model
+  beta_EIB <- summary_EIB[2, 1]     # beta coefficient for EIB model
+  
+  # Store the extracted results into the 'fit_results' data frame for each variable
+  fit_results <- rbind(fit_results,
+                       data.frame(Variable = variable, Model = "GABA", Beta = beta_GABA, P_Value = p_val_GABA),
+                       data.frame(Variable = variable, Model = "Glx", Beta = beta_Glx, P_Value = p_val_Glx),
+                       data.frame(Variable = variable, Model = "EIB", Beta = beta_EIB, P_Value = p_val_EIB))
+}
+
+# Correct p-values for multiple comparisons using False Discovery Rate (FDR) adjustment
+fit_results$Adjusted_P_Value <- NA  # Initialize a new column for adjusted p-values
+
+# Loop through each variable to apply FDR adjustment to p-values
+for (variable in variables_to_test) {
+  
+  # Subset the p-values corresponding to the current variable
+  p_values_subset <- fit_results$P_Value[fit_results$Variable == variable]
+  
+  # Apply the FDR method to adjust the p-values
+  adjusted_p_values <- p.adjust(p_values_subset, method = "fdr")
+  
+  # Assign the adjusted p-values back to the fit_results data frame
+  fit_results$Adjusted_P_Value[fit_results$Variable == variable] <- adjusted_p_values
+}
+
+# Display the results with both original and adjusted p-values
+print(fit_results)
+
+
+```
+
+## Plot Fixed Effect
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Install and load necessary packages
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+  install.packages("ggplot2")
+}
+library(ggplot2)
+library(extrafont)
+
+# Import and load fonts (only need to do this once)
+# font_import()  # Uncomment to import fonts if you haven't done this
+loadfonts(device = "win")  # Load fonts
+
+# Fit a linear model for RT as a function of GABA (without interaction)
+model <- lm(ADAS_Cog ~ EIB, data = AD_dt)
+
+# Create the scatter plot of GABA vs RT without interaction
+scatter_plot <- ggplot(AD_dt, aes(x = EIB, y = ADAS_Cog)) +
+  geom_point(size = 2, alpha = 0.6) +  # Scatter points
+  geom_smooth(method = "lm", se = TRUE, fill = "#93543F", alpha = 0.3, color = "#93543F") +  # Linear model with shadow confidence intervals and grey line
+  labs(
+    x = "EIB",              # Label for the x-axis
+    y = "ADAS_Cog13 linear prediction"                 # Label for the y-axis
+  ) +
+  theme_minimal() +       # Use a minimal theme for a cleaner look
+  theme(
+    legend.position = "top",  # Position the legend at the top
+    axis.text = element_text(size = 20, family = "Helvetica"),  # Change font family for axis text
+    axis.title = element_text(size = 20, family = "Helvetica"), # Change font family for axis titles
+    plot.title = element_text(size = 20, family = "Helvetica"), # Change font family for plot title
+    panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "grey90"),  # Customize grid lines
+    panel.grid.minor = element_blank()    # Remove minor grid lines
+  )
+
+# Display the plot
+print(scatter_plot)
+
+# Save the plot
+ggsave("C:/Users/Asia/OneDrive/Documenti/ApoE/Final_ApoE_Figures/ADAS_GABA_fixed_effect.png", 
+       plot = scatter_plot, width = 8, height = 8, dpi = 600, units = "in")
+
+
+```
+
