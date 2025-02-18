@@ -3,7 +3,7 @@ PATHFIND: Paths to Alzheimer's THrough Fingerprinting and Intrinsic Neural Dynam
 
 This repository provides tools and resources for conducting intrinsic neural timescale (Raut et al., 2020) correlations with behavioral data and functional connectivity fingerprinting analysis (Amico & Goni, 2018) in clinical populations using advanced neuroimaging techniques. The aim is to identify and analyze unique patterns of functional brain connectivity that can serve as biomarkers for various neurological and psychiatric conditions.
 
-1. Extract_FC_matrices.m:
+1. 'Extract_FC_matrices.m':
 This script calculates average time series for different brain regions (parcels) defined by the pre-selected atlas, and computes Functional Connectivity (FC) matrices.
 It starts from zipped (nii.gz) or unzipped (nii) MRI/fMRI data; it handles various atlases (e.g., Glasser, Schaefer 100, Schaefer 200) and saves the results (volume per volume parcellation and/or FC matrices) in specified output directories for further analysis.
 
