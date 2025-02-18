@@ -5,7 +5,7 @@ date: "2025-02-17"
 output: html_document
 ---
 ## This R script performs data preprocessing, normality testing, and regression modeling to analyze the relationship 
-# between neuropsychological test scores and neuroimaging variables. It uses zero-inflated Gamma regression 
+## between neuropsychological test scores and neuroimaging variables. It uses zero-inflated Gamma regression 
 ## models and visualizes results through histograms, Q-Q plots, and linear regression plots.
 ```{r}
 # Load necessary packages
