@@ -81,4 +81,4 @@ For questions or contributions, please contact [francesca.saviola@epfl.ch] or [a
 - R 4.0.0 or later
 - Bash shell (Unix-based system or Windows Subsystem for Linux)
 - Gannet (https://markmikkelsen.github.io/Gannet-docs/index.html)
-- R packages: dplyr, extrafont, gamlss, ggplot2, glmmTMB, knitr, kableExtra, lme4, MASS, readr, readxl, stats, survival, tidyr, viridis (install via install.packages(c("dplyr", "extrafont", "gamlss", "ggplot2", "glmmTMB", "knitr", "kableExtra", "lme4", "MASS", "readr", "readxl", "stats", "survival", "tidyr", "viridis")))
+- R packages: dplyr, extrafont, gamlss, ggplot2, glmmTMB, knitr, kableExtra, lme4, MASS, readr, readxl, stats, survival, tidyr, viridis (install via `install.packages(c("dplyr", "extrafont", "gamlss", "ggplot2", "glmmTMB", "knitr", "kableExtra", "lme4", "MASS", "readr", "readxl", "stats", "survival", "tidyr", "viridis"))`)
