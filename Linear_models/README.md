@@ -1,4 +1,4 @@
-# **README**  ## **How to perform functional fingerprinting analyses**
+# **README** - **How to perform functional fingerprinting analyses**
 
 ### **1. Extract_FC_matrices.m**  
 - Computes average time series for brain regions using pre-selected atlases (e.g., Glasser, Schaefer 100/200).  
