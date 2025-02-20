@@ -58,6 +58,7 @@ This repository provides tools and resources for analyzing **intrinsic neural ti
 
 ## **Full Citation**
 Amico E, Goñi J (2018). *The quest for identifiability in human functional connectomes*. *Scientific Reports*, 8:1–14. DOI: [10.1038/s41598-018-25089-1](https://www.nature.com/articles/s41598-018-25089-1)
+Raut, R. V., Snyder, A. Z., & Raichle, M. E. (2020). *Hierarchical dynamics as a macroscopic organizing principle of the human brain*. *Proceedings of the National Academy of Sciences*, 117(34), 20890-20897. DOI: [10.1073/pnas.2003383117](https://doi.org/10.1073/pnas.2003383117)
 
 ---
 
