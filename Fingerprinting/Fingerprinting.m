@@ -10,15 +10,15 @@
 clearvars
 clc
 close all;
-
-% Add utility functions to the MATLAB path
+project_dir = pwd;
 addpath(genpath(fullfile(project_dir, 'utilities', 'functions')));
+mkdir(project_dir,'ICC');
 
 %% Load AD_car (functional connectivity) resting-state data
 % Load sample data for Alzheimer's disease (AD) with car condition.
 % The data consists of a cell array where each cell represents a subject.
 % Each subject's data is a 3D matrix: brain regions x brain regions x test/re-test.
-load('FC_INT_AD_car.mat');
+load(fullfile('input_matrices','FC_INT_AD_car.mat'));
 data_test_AD_car = FC_INT_AD_car;
 
 % Extract number of subjects and regions of interest (ROI)
@@ -86,6 +86,8 @@ ICC_mat_AD_car = zeros(n_roi, n_roi);
 ICC_mat_AD_car(mask_ut) = ICC_struct_AD_car;
 ICC_mat_AD_car = triu(ICC_mat_AD_car) + triu(ICC_mat_AD_car, 1)';
 
+save(fullfile(project_dir,'ICC','ICC_mat_AD_car'),'ICC_mat_AD_car');
+
 % Plot ICC matrix
 subplot(1,2,2);
 imagesc(ICC_mat_AD_car);
@@ -100,7 +102,7 @@ ylabel('360 roi');
 % Load sample data for Alzheimer's disease (AD) with car condition.
 % The data consists of a cell array where each cell represents a subject.
 % Each subject's data is a 3D matrix: brain regions x brain regions x test/re-test.
-load('FC_INT_AD_nocar.mat');
+load(fullfile('input_matrices','FC_INT_AD_nocar.mat'));
 data_test_AD_nocar = FC_INT_AD_nocar;
 
 % Extract number of subjects and regions of interest (ROI)
@@ -168,6 +170,8 @@ ICC_mat_AD_nocar = zeros(n_roi, n_roi);
 ICC_mat_AD_nocar(mask_ut) = ICC_struct_AD_nocar;
 ICC_mat_AD_nocar = triu(ICC_mat_AD_nocar) + triu(ICC_mat_AD_nocar, 1)';
 
+save(fullfile(project_dir,'ICC','ICC_mat_AD_nocar'),'ICC_mat_AD_nocar');
+
 % Plot ICC matrix
 subplot(1,2,2);
 imagesc(ICC_mat_AD_nocar);
@@ -182,7 +186,7 @@ ylabel('360 roi');
 % Load sample data for Alzheimer's disease (AD) with car condition.
 % The data consists of a cell array where each cell represents a subject.
 % Each subject's data is a 3D matrix: brain regions x brain regions x test/re-test.
-load('FC_INT_CU_car.mat');
+load(fullfile('input_matrices','FC_INT_CU_car.mat'));
 data_test_CU_car = FC_INT_CU_car;
 
 % Extract number of subjects and regions of interest (ROI)
@@ -250,6 +254,8 @@ ICC_mat_CU_car = zeros(n_roi, n_roi);
 ICC_mat_CU_car(mask_ut) = ICC_struct_CU_car;
 ICC_mat_CU_car = triu(ICC_mat_CU_car) + triu(ICC_mat_CU_car, 1)';
 
+save(fullfile(project_dir,'ICC','ICC_mat_CU_car'),'ICC_mat_CU_car');
+
 % Plot ICC matrix
 subplot(1,2,2);
 imagesc(ICC_mat_CU_car);
@@ -264,7 +270,7 @@ ylabel('360 roi');
 % Load sample data for Alzheimer's disease (AD) with car condition.
 % The data consists of a cell array where each cell represents a subject.
 % Each subject's data is a 3D matrix: brain regions x brain regions x test/re-test.
-load('FC_INT_CU_nocar.mat');
+load(fullfile('input_matrices','FC_INT_CU_nocar.mat'));
 data_test_CU_nocar = FC_INT_CU_nocar;
 
 % Extract number of subjects and regions of interest (ROI)
@@ -332,6 +338,8 @@ ICC_mat_CU_nocar = zeros(n_roi, n_roi);
 ICC_mat_CU_nocar(mask_ut) = ICC_struct_CU_nocar;
 ICC_mat_CU_nocar = triu(ICC_mat_CU_nocar) + triu(ICC_mat_CU_nocar, 1)';
 
+save(fullfile(project_dir,'ICC','ICC_mat_CU_nocar'),'ICC_mat_CU_nocar');
+
 % Plot ICC matrix
 subplot(1,2,2);
 imagesc(ICC_mat_CU_nocar);
@@ -348,42 +356,36 @@ ylabel('360 roi');
 total_Idiff = [Idiff_indiv_AD_car, Idiff_indiv_AD_nocar, Idiff_indiv_ApoE, Idiff_indiv_HC];
 
 % Define group labels for each dataset
-% Group 1: AD with car (10 subjects)
-% Group 2: AD without car (16 subjects)
-% Group 3: ApoE (35 subjects)
-% Group 4: Healthy Controls (34 subjects)
+% Group 1: AD carriers (10 subjects)
+% Group 2: AD non-carriers (16 subjects)
+% Group 3: CU carriers (35 subjects)
+% Group 4: CU non-carriers (34 subjects)
 group = [repmat(1, 1, 10), repmat(2, 1, 16), repmat(3, 1, 35), repmat(4, 1, 34)];
 
 % Perform Kruskal-Wallis test to check for statistical differences between groups
-[p, tbl, stats] = kruskalwallis(total_Idiff, group);
+[p_Idiff, tbl_Idiff, stats_Idiff] = kruskalwallis(total_Idiff, group);
 
 % Perform multiple comparisons (post-hoc test) to identify significant group differences
-multcompare(stats);
+multcompare(stats_Idiff);
 
 % ---- Repeat the same process for Iself variable ----
 
 % Combine all self-related data (Iself) into a single array
 total_Iself = [Iself_AD_car, Iself_AD_nocar, Iself_ApoE, Iself_HC];
 
-% Define the same group labels as above
-group = [repmat(1, 1, 10), repmat(2, 1, 16), repmat(3, 1, 35), repmat(4, 1, 34)];
-
 % Perform Kruskal-Wallis test for self-related data
-[p, tbl, stats] = kruskalwallis(total_Iself, group);
+[p_Iself, tbl_Iself, stats_Iself] = kruskalwallis(total_Iself, group);
 
 % Perform multiple comparisons to identify significant group differences
-multcompare(stats);
+multcompare(stats_Iself);
 
 % ---- Repeat the same process for Iothers variable ----
 
 % Combine all other-related data (Iothers) into a single array
 total_Iothers = [Iothers_AD_car, Iothers_AD_nocar, Iothers_ApoE, Iothers_HC];
 
-% Define the same group labels as above
-group = [repmat(1, 1, 10), repmat(2, 1, 16), repmat(3, 1, 35), repmat(4, 1, 34)];
-
 % Perform Kruskal-Wallis test for other-related data
-[p, tbl, stats] = kruskalwallis(total_Iothers, group);
+[p_Iothers, tbl_Iothers, stats_Iothers] = kruskalwallis(total_Iothers, group);
 
 % Perform multiple comparisons to identify significant group differences
 multcompare(stats);
