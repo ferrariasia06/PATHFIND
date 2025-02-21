@@ -97,7 +97,7 @@ for n = 1:num_networks
     disp(array2table(c_networks{n}, 'VariableNames', {'Group1', 'Group2', 'LowerCI', 'Difference', 'UpperCI', 'P-value'}));
 end
 
-%% Plot Heatmap of Corrected P-values and Effect Sizes
+%% Plot Heatmap of Corrected P-values and Effect Sizes (Fig. 6 Supplementary material)
 % Define colormap gradient from white to dark brown (#68412A)
 start_color = [1, 1, 1];  % White
 end_color = [0.572, 0.070, 0.164];  % RGB for #68412A
@@ -244,7 +244,7 @@ end
 disp('Mean ICC values of network averages (Fisher Z-transformed):');
 disp(array2table(mean_icc, 'RowNames', group_names, 'VariableNames', {'Unimodal', 'Transmodal'}));
 
-%% Generate Heatmap of Corrected P-values and Effect Sizes  
+%% Generate Heatmap of Corrected P-values and Effect Sizes (Fig. 4E)
 % This section visualizes the results using a heatmap, where color intensity represents statistical significance (-log10 p-values),  
 % and effect sizes are displayed within each cell.
 
