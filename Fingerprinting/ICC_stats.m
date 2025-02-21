@@ -7,22 +7,54 @@
 % Code Authors: Asia Ferrari, Francesca Saviola  
 % Version 1.0 (17 February, 2025)  
 
-% Add utility functions to the MATLAB path
-addpath(genpath(fullfile(project_dir, 'utilities', 'functions')));
+%% Clear workspace and set project directory
+clear all; 
+clc;
+project_dir = fullfile(pwd);
+
+%% Reorder and threshold matrices
+
+% Load ICC matrices for different groups.
+load(fullfile(project_dir, 'ICC', 'ICC_mat_AD_car.mat'));
+load(fullfile(project_dir, 'ICC', 'ICC_mat_AD_nocar.mat'));
+load(fullfile(project_dir, 'ICC', 'ICC_mat_CU_car.mat'));
+load(fullfile(project_dir, 'ICC', 'ICC_mat_CU_nocar.mat'));
+
+% Define the threshold value
+threshold = 0.6;
+
+% Apply thresholding to each ICC matrix
+% Keeping only values above 0.6 and setting others to 0, and removing
+% subcortical parcels
+ICC_mat_AD_car_thr = ICC_mat_AD_car([1:360],[1:360]);
+ICC_mat_AD_car_thr(ICC_mat_AD_car_thr < threshold) = 0;
+
+ICC_mat_AD_nocar_thr = ICC_mat_AD_nocar([1:360],[1:360]); 
+ICC_mat_AD_nocar_thr(ICC_mat_AD_nocar_thr < threshold) = 0;
+
+ICC_mat_CU_car_thr = ICC_mat_CU_car([1:360],[1:360]); 
+ICC_mat_CU_car_thr(ICC_mat_CU_car_thr < threshold) = 0;
+
+ICC_mat_CU_nocar_thr = ICC_mat_CU_nocar([1:360],[1:360]); 
+ICC_mat_CU_nocar_thr(ICC_mat_CU_nocar_thr < threshold) = 0;
+
+% Load Yeo 7 resting-state network ordering for Glasser 360 parcellation
+load('yeo_RS7_Glasser360.mat');
+
+% Reorder the thresholded matrices based on Yeo ordering
+ICC_mat_AD_car_thr_yeo = ICC_mat_AD_car_thr(yeoOrder,yeoOrder);
+ICC_mat_AD_nocar_thr_yeo = ICC_mat_AD_nocar_thr(yeoOrder,yeoOrder);
+ICC_mat_CU_car_thr_yeo = ICC_mat_CU_car_thr(yeoOrder,yeoOrder);
+ICC_mat_CU_nocar_thr_yeo = ICC_mat_CU_nocar_thr(yeoOrder,yeoOrder);
 
 %% Load the Data and Atlas
-% Load the ICC (Intraclass Correlation Coefficient) data, adjusted by FS
-load('ICC_ordered_Yeo_thr06.mat')
-
-% Load the Glasser 60 parcels to Yeo 7-network atlas correspondence for functional connectivity analysis
-load('yeo_RS7_Glasser360.mat')
 
 % Define network labels (1 to 7) corresponding to the Yeo atlas
 network_labels = 1:7; 
 
 % Define group names and corresponding ICC data matrices
-data_groups = {ICC_mat_AD_car_Yeo_thr06, ICC_mat_AD_nocar_Yeo_thr06, ...
-               ICC_mat_CU_car_Yeo_thr06, ICC_mat_CU_nocar_Yeo_thr06};
+data_groups = {ICC_mat_AD_car_thr_yeo, ICC_mat_AD_nocar_thr_yeo, ...
+               ICC_mat_CU_car_thr_yeo, ICC_mat_CU_nocar_thr_yeo};
 
 num_groups = length(data_groups); % Number of groups
 num_networks = length(network_labels); % Number of networks
@@ -150,6 +182,7 @@ unimodal_data = [];
 transmodal_data = [];
 group_labels_unimodal = [];
 group_labels_transmodal = [];
+group_names = {'AD-ɛ4+','AD-ɛ4-','CU-ɛ4+','CU-ɛ4-'};
 
 for g = 1:num_groups
     % Extract ICC values for unimodal and transmodal networks  
@@ -247,7 +280,7 @@ colorbar;
 
 % Customize the plot axes  
 set(gca, 'XTick', 1:numel(col_labels), 'XTickLabel', col_labels, 'XTickLabelRotation', 45, 'FontSize', 12);
-set(gca, 'YTick', 1:2, 'YTickLabel', {'Unimodal', 'Transmodal'}, 'FontSize', 12);
+set(gca, 'YTick', 1:2, 'YTickLabel', {'Unimodal', 'Transmodal'}, 'FontSize', 20);
 ylabel('Network Type');
 
 % Overlay effect sizes on the heatmap and highlight significant results  
@@ -256,11 +289,11 @@ for i = 1:size(pcolor_matrix, 1)
         effect_size_str = sprintf('%.2f', effect_sizes(i,j));
         if p_values(i,j) < 0.05
             text(j, i, effect_size_str, 'HorizontalAlignment', 'center', ...
-                'VerticalAlignment', 'middle', 'Color', 'black', 'FontSize', 10, 'FontWeight', 'bold');
+                'VerticalAlignment', 'middle', 'Color', 'black', 'FontSize', 20, 'FontWeight', 'bold');
             rectangle('Position', [j-0.5, i-0.5, 1, 1], 'EdgeColor', 'red', 'LineWidth', 2);
         else
             text(j, i, effect_size_str, 'HorizontalAlignment', 'center', ...
-                'VerticalAlignment', 'middle', 'Color', 'black', 'FontSize', 10);
+                'VerticalAlignment', 'middle', 'Color', 'black', 'FontSize', 20);
         end
     end
 end
