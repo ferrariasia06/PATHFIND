@@ -11,6 +11,9 @@ clearvars
 clc
 close all;
 
+% Add utility functions to the MATLAB path
+addpath(genpath(fullfile(project_dir, 'utilities', 'functions')));
+
 %% Load AD_car (functional connectivity) resting-state data
 % Load sample data for Alzheimer's disease (AD) with car condition.
 % The data consists of a cell array where each cell represents a subject.
