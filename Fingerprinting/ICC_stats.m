@@ -7,6 +7,9 @@
 % Code Authors: Asia Ferrari, Francesca Saviola  
 % Version 1.0 (17 February, 2025)  
 
+% Add utility functions to the MATLAB path
+addpath(genpath(fullfile(project_dir, 'utilities', 'functions')));
+
 %% Load the Data and Atlas
 % Load the ICC (Intraclass Correlation Coefficient) data, adjusted by FS
 load('ICC_ordered_Yeo_thr06.mat')
