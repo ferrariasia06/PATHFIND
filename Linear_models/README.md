@@ -1,27 +1,38 @@
-# **README** - **How to perform general linear models analyses**
+# **README - General Linear Models Analyses**
 
-### **1. MRS_linear_models.Rmd**  
-- Analyzes relationships between neuropsychological test scores and neuroimaging variables.  
-- Performs preprocessing, normality testing, and regression modeling using zero-inflated Gamma regression.  
-- Visualizes results with histograms, Q-Q plots, and linear regression plots.
-
-Input files:
-- Database_AD_MRS.xlsx
-
-Output files:
-- MRS_linear_model.html
+This guide provides instructions for performing general linear model analyses using the provided R Markdown scripts. Each script processes specific datasets and generates outputs for analysis and visualization. File and folder names are highlighted for clarity.
 
 ---
 
-### **2. INT_linear_models.Rmd**  
-- Explores relationships between neuroimaging data and predictors (e.g., gender, MMSE, group).  
-- Conducts mixed-effects modeling (*GLMM*, Weibull, Log-Normal) with AIC/BIC-based model comparisons.  
-- Visualizes fixed effects through scatter plots.
+## **1. `MRS_linear_models.Rmd`**  
+This script analyzes the relationships between neuropsychological test scores and neuroimaging variables. It includes preprocessing, normality testing, and regression modeling using **zero-inflated Gamma regression**.
 
-Input files:
-- Database_AD_ApoE_DMN.xlsx
+### **Features:**
+- Preprocessing of input data.
+- Normality testing with histograms and Q-Q plots.
+- Regression modeling with visualizations of results (e.g., linear regression plots).
 
-Output files:
-- INT_linear_models.html
+### **Input File:**
+- `Database_AD_MRS.xlsx`
+
+### **Output File:**
+- `MRS_linear_model.html`
 
 ---
+
+## **2. `INT_linear_models.Rmd`**  
+This script explores the relationships between neuroimaging data and predictors such as gender, MMSE scores, and group membership. It performs **generalized linear mixed-effects modeling (GLMM)** with model comparisons based on AIC/BIC criteria.
+
+### **Features:**
+- Mixed-effects modeling using Weibull and Log-Normal distributions.
+- Model selection based on AIC/BIC values.
+- Visualization of fixed effects through scatter plots.
+
+### **Input File:**
+- `Database_AD_ApoE_DMN.xlsx`
+
+### **Output File:**
+- `INT_linear_models.html`
+
+---
+
