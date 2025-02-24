@@ -1,47 +1,68 @@
-## **README - How to perform functional fingerprinting analyses**
+# **README - Functional Fingerprinting Analyses**
 
-### **1. `Extract_FC_matrices.m`**  
-- Computes average time series for brain regions using pre-selected atlases (e.g., Glasser, Schaefer 100/200).  
-- Generates FC matrices from MRI/fMRI data (zipped `.nii.gz` or unzipped `.nii`).  
-- Outputs include volume-per-volume parcellation and/or FC matrices for further analysis.
+This guide outlines the steps and scripts required to perform functional fingerprinting analyses. Each script processes specific data and generates outputs for subsequent steps. File and folder names are highlighted for clarity.
 
 ---
 
-### **2. `FC_matrices_preparation.m`**  
-- Creates the input structure for the fingerprinting analysis by enriching FC matrices with INT values.
+## **1. `Extract_FC_matrices.m`**  
+This script computes average time series for brain regions using pre-selected atlases (e.g., Glasser, Schaefer 100/200). It generates **Functional Connectivity (FC) matrices** from MRI/fMRI data.  
 
-Input files:
-- *_FC_half1_test.mat
-- *_FC_half2_retest.mat
-- *_INT.mat
+### **Input:**
+- MRI/fMRI data in `.nii.gz` (zipped) or `.nii` (unzipped) formats.
 
-Output files:
-- input_matrices/FC_INT_*.mat
-
----
-
-### **3. Fingerprinting.m**  
-- Calculates identifiability metrics (e.g., success rates, *Iself*, *Iothers*, *Idiff*, ICC).  
-- Performs statistical analysis using Kruskal-Wallis tests and post-hoc comparisons.  
-- Requires `f_load_mat.m` and `f_ICC_edgewise.m`.
-
-Input files:
-- input_matrices/FC_INT_*.mat
-
-Output files:
-- ICC/ICC_mat_*.mat
+### **Output:**
+- Volume-per-volume parcellation files.
+- FC matrices for further analysis.
 
 ---
 
-### **4. ICC_stats.m**  
-- Processes **Intraclass Correlation Coefficients (ICC)** from FC matrices.  
-- Conducts statistical comparisons across groups with Fisher's Z-transformation.  
-- Visualizes results using heatmaps of corrected p-values and effect sizes.  
-- Includes network-specific evaluations for unimodal and transmodal networks.
+## **2. `FC_matrices_preparation.m`**  
+This script prepares the input structure for fingerprinting analysis by enriching FC matrices with INT values.
 
-Input files:
-- ICC/ICC_mat_*.mat
+### **Input Files:**
+- `*_FC_half1_test.mat`  
+- `*_FC_half2_retest.mat`  
+- `*_INT.mat`  
 
-Output files:
-- Figure 4E
-- Supplementary Figure 6 
+### **Output Files:**
+- `input_matrices/FC_INT_*.mat`
+
+---
+
+## **3. `Fingerprinting.m`**  
+This script calculates identifiability metrics and performs statistical analysis.
+
+### **Metrics Computed:**
+- Success rates, *Iself*, *Iothers*, *Idiff*, and ICC (Intraclass Correlation Coefficients).  
+
+### **Statistical Tests:**
+- Kruskal-Wallis tests with post-hoc comparisons.
+
+### **Dependencies:**
+- `f_load_mat.m`  
+- `f_ICC_edgewise.m`
+
+### **Input Files:**
+- `input_matrices/FC_INT_*.mat`
+
+### **Output Files:**
+- `ICC/ICC_mat_*.mat`
+
+---
+
+## **4. `ICC_stats.m`**  
+This script processes **Intraclass Correlation Coefficients (ICC)** from FC matrices and conducts group-level statistical comparisons.
+
+### **Key Features:**
+- Fisher's Z-transformation for group comparisons.
+- Heatmaps of corrected p-values and effect sizes.
+- Network-specific evaluations for unimodal and transmodal networks.
+
+### **Input Files:**
+- `ICC/ICC_mat_*.mat`
+
+### **Output Files:**
+- `Figure 4E`
+- `Supplementary Figure 6`
+
+---
